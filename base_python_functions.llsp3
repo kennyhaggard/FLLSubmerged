@@ -6,7 +6,7 @@ import runloop
 # Pair motors for synchronized movement (A and B for the drive)
 motor_pair.pair(motor_pair.PAIR_1, port.A, port.B)
 
-async def move_forward_with_acceleration(distance_cm, max_speed=360, acceleration=50):
+async def move(distance_cm, max_speed=360, acceleration=50):
     """
     Moves the robot forward or backward by a specified distance with acceleration.
 
@@ -37,7 +37,7 @@ async def move_forward_with_acceleration(distance_cm, max_speed=360, acceleratio
     motor_pair.stop(motor_pair.PAIR_1, stop=motor.BRAKE)
     motion_sensor.reset_yaw(0)
 
-async def turn_with_pid(angle_degrees, base_speed=180, kp=1.2, ki=0.0, kd=0.8):
+async def turn(angle_degrees, base_speed=180, kp=1.2, ki=0.0, kd=0.8):
     """
     Turns the robot left or right using a PID controller.
 
@@ -69,19 +69,17 @@ async def turn_with_pid(angle_degrees, base_speed=180, kp=1.2, ki=0.0, kd=0.8):
         await runloop.sleep_ms(10)
 
     motor_pair.stop(motor_pair.PAIR_1)
+
 async def main():
     # Example sequence of movements using the updated functions
-    await move_forward_with_acceleration(54, max_speed=700, acceleration=100)
-    await turn_with_pid(-40, base_speed=80)
-    await move_forward_with_acceleration(38, max_speed=700, acceleration=100)
-    await turn_with_pid(-50, base_speed=80)
-    await move_forward_with_acceleration(11, max_speed=700, acceleration=100)
-    await move_forward_with_acceleration(-10, max_speed=700, acceleration=100)
-    await turn_with_pid(50, base_speed=80)
-    await move_forward_with_acceleration(30, max_speed=700, acceleration=100)
-    await move_forward_with_acceleration(-80, max_speed=700, acceleration=100)
-    await turn_with_pid(40, base_speed=80)
-    await move_forward_with_acceleration(-35, max_speed=700, acceleration=100)
+    await move(54, max_speed=700, acceleration=100)
+    await turn(-40, base_speed=80)
+    await move(38, max_speed=700, acceleration=100)
+    await turn(-50, base_speed=80)
+    await move(11, max_speed=700, acceleration=100)
+    await move(-10, max_speed=700, acceleration=100)
+    await turn(50, base_speed=80)
+    await move(30, max_speed=700, acceleration=100)
 
     # Final Step: Stop all motors
     motor_pair.stop(motor_pair.PAIR_1)
