@@ -1,0 +1,90 @@
+from hub import light_matrix, port, motion_sensor
+import motor
+import motor_pair
+import runloop
+
+# Pair motors for synchronized movement (A and B for the drive)
+motor_pair.pair(motor_pair.PAIR_1, port.A, port.B)
+
+async def move_forward_with_acceleration(distance_cm, max_speed=360, acceleration=50):
+    """
+    Moves the robot forward or backward by a specified distance with acceleration.
+
+    Args:
+    - distance_cm (float): Distance to move. Positive for forward, negative for backward.
+    - max_speed (int): Maximum speed in degrees/sec.
+    - acceleration (int): Rate of speed change.
+    """
+    wheel_circumference = 17.6# cm (small wheels)
+    rotations = distance_cm / wheel_circumference
+    degrees_to_rotate = int(round(rotations * 360, 0))
+
+    # Gradually increase speed to max_speed
+    current_speed = 0
+    while current_speed < max_speed:
+        current_speed += acceleration
+        if current_speed > max_speed:
+            current_speed = max_speed
+        await motor_pair.move_for_degrees(motor_pair.PAIR_1, degrees_to_rotate // 10, 0, velocity=current_speed)
+
+    # Decelerate to stop
+    while current_speed > 0:
+        current_speed -= acceleration
+        if current_speed < 0:
+            current_speed = 0
+        await motor_pair.move_for_degrees(motor_pair.PAIR_1, degrees_to_rotate // 10, 0, velocity=current_speed)
+
+    motor_pair.stop(motor_pair.PAIR_1, stop=motor.BRAKE)
+    motion_sensor.reset_yaw(0)
+
+async def turn_with_pid(angle_degrees, base_speed=180, kp=1.2, ki=0.0, kd=0.8):
+    """
+    Turns the robot left or right using a PID controller.
+
+    Args:
+    - angle_degrees (float): Angle to turn. Positive for left, negative for right. This depends on orientation of the brick to the 'front' of the robot
+    - base_speed (int): Maximum speed in degrees/sec.
+    - kp, ki, kd (float): PID constants.
+    """
+    target_angle = -angle_degrees * 10# Convert degrees to decidegrees
+    integral = 0
+    previous_error = 0
+
+    motion_sensor.reset_yaw(0)# Reset yaw sensor
+
+    while True:
+        current_angle = motion_sensor.tilt_angles()[0]
+        error = target_angle - current_angle
+        integral += error
+        derivative = error - previous_error
+
+        speed = int(kp * error + ki * integral + kd * derivative)
+        speed = max(-base_speed, min(base_speed, speed))# Clamp speed
+
+        if abs(error) < 10:# Stop if close enough (1 degree in decidegrees)
+            break
+
+        motor_pair.move_tank(motor_pair.PAIR_1, -speed, speed)
+        previous_error = error
+        await runloop.sleep_ms(10)
+
+    motor_pair.stop(motor_pair.PAIR_1)
+async def main():
+    # Example sequence of movements using the updated functions
+    await move_forward_with_acceleration(54, max_speed=700, acceleration=100)
+    await turn_with_pid(-40, base_speed=80)
+    await move_forward_with_acceleration(38, max_speed=700, acceleration=100)
+    await turn_with_pid(-50, base_speed=80)
+    await move_forward_with_acceleration(11, max_speed=700, acceleration=100)
+    await move_forward_with_acceleration(-10, max_speed=700, acceleration=100)
+    await turn_with_pid(50, base_speed=80)
+    await move_forward_with_acceleration(30, max_speed=700, acceleration=100)
+    await move_forward_with_acceleration(-80, max_speed=700, acceleration=100)
+    await turn_with_pid(40, base_speed=80)
+    await move_forward_with_acceleration(-35, max_speed=700, acceleration=100)
+
+    # Final Step: Stop all motors
+    motor_pair.stop(motor_pair.PAIR_1)
+    motor.stop(port.C)# Stop Motor C if it's running
+
+runloop.run(main())
